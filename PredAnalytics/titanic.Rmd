@@ -1,0 +1,28 @@
+---
+title: "Kaggle Titanic"
+author: "Robert C Phillips"
+date: "January 23, 2016"
+output: html_document
+---
+
+Part 1: Problem Description
+
+Part 2: Analysis Approach
+
+Part 3: Initial Solution
+
+Part 4: Initial Solution Analysis
+
+Part 5: Revised Solution and Analysis
+
+```{r}
+
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+
+```
+
+

@@ -1,0 +1,122 @@
+---
+title: "Kaggle Titanic CART Analysis in R"
+author: "Robert C Phillips"
+date: "February 9, 2016"
+output: html_document
+---
+
+This analysis uses the Titanic survivor data provided by Kaggle at http://www.kaggle.com/c/titanic/data.  I am using R for this analysis.
+
+Per the description on Kaggle, the variable descriptions are as follows.
+
+* survival: Survival (0 = No; 1 = Yes)
+* pclass: Passenger Class (proxy for socio-economic status 1 = 1st; 2 = 2nd; 3 = 3rd)
+* name: Name
+* sex: Sex
+* age: Age
+* sibsp: Number of Siblings/Spouses Aboard
+* parch: Number of Parents/Children Aboard
+* ticket: Ticket Number
+* fare: Passenger Fare
+* cabin: Cabin
+* embarked: Port of Embarkation (C = Cherbourg; Q = Queenstown; S = Southampton)
+
+##Part 1: Problem Description
+The purpose of this ananlysis is to build a model that indicates the attributes that are predctive of which passengers survive and which do not.  For this analysis, since we have survival labels we'll apply a supervised learning algorithm to build the model.
+
+##Part 2: Approach
+Although both a training set and a test set are provided, the test set does not have the labels as it is intended to be used as the submission for the kaggle competiton.  Therefore only the training set will be utilized in the analysis. We will split the training set so that some of it will be used to train the model and the rest will be used to evaluate the model.
+
+For this analysis, to avoid issues with missing values, we'll use a CART model to build a decision tree that can be used to show how the selected attributes predict survival.
+
+The following R code loads the Kaggle provided training data.
+
+```{r}
+train <- read.csv("titanic_train.csv")
+```
+
+The Survived indicator is loaded as an integer by default.  Therefore we'll convert it to a factor.  We'll convert other categorical variables to factors as well.
+
+```{r}
+train$Survived <- as.factor(train$Survived)
+train$Pclass <- as.factor(train$Pclass)
+```
+
+As previously noted, we'll split the training data into a set that will be used to train the model and a set that will be used to evaluate the model.
+
+```{r message=FALSE}
+require("caTools")
+
+set.seed(1446)
+split <- sample.split(train$Survived, SplitRatio = 0.65)
+train.tr <- subset(train, split == TRUE)
+train.te <- subset(train, split == FALSE)
+```
+
+##Part 3: Initial Solution
+We'll first consider a simple model based on Sex.  The following bar plot indicates that a majority of the survivors were female and a majority of the non-survivors were male.  Using this attribute can serve as a reasonable baseline model.
+
+```{r message=FALSE}
+require("ggplot2")
+
+g <- ggplot(train, aes(Survived))
+g + geom_bar(aes(fill = Sex))
+```
+
+Running a CART model using Sex yields the following tree.
+
+```{r message=FALSE}
+require(rpart)
+require(rpart.plot)
+
+model1 <- Survived ~ Sex
+
+# cart model
+cart1 <- rpart(model1, data=train.tr, method="class")
+
+#performance on the training data
+cart1.tr.predict <- predict(cart1, newdata=train.tr, type="class")
+cart1.tr.predict.t <- table(train.tr$Survived, cart1.tr.predict)
+cart1.tr.acc <- (cart1.tr.predict.t[1,1]+cart1.tr.predict.t[2,2])/sum(cart1.tr.predict.t)
+
+#performance on the test data
+cart1.te.predict <- predict(cart1, newdata=train.te, type="class")
+cart1.te.predict.t <- table(train.te$Survived, cart1.te.predict)
+cart1.te.acc <- (cart1.te.predict.t[1,1]+cart1.te.predict.t[2,2])/sum(cart1.te.predict.t)
+
+#display decision tree
+prp(cart1)
+```
+
+##Part 4: Initial Solution Analysis
+As expected given the bar chart, this simple model yields a tree with obversations with Sex = female are mapped to the Survived class, whereas observations wtih Sex = mail are mapped to the not-Surived class.
+
+The accuracy of this model on the training data is `r cart1.tr.acc`.  The accuracy of this model on the test data is `r cart1.te.acc`.
+
+##Part 5: Revised Solution and Analysis
+For the next model, we'll consider age and Passenger Class as additional variables.  Note that the Passenger Class variable is a proxy for socio-economic status with 1 = 1st, 2 = 2nd, and 3 = 3rd.
+
+```{r message=FALSE}
+model2 <- Survived ~ Sex + Pclass + Age
+
+# cart model
+cart2 <- rpart(model2, data=train.tr, method="class")
+
+#performance on the training set
+cart2.tr.predict <- predict(cart2, newdata=train.tr, type="class")
+cart2.tr.predict.t <- table(train.tr$Survived, cart2.tr.predict)
+cart2.tr.acc <- (cart2.tr.predict.t[1,1]+cart2.tr.predict.t[2,2])/sum(cart2.tr.predict.t)
+
+#performance on the test set
+cart2.te.predict <- predict(cart2, newdata=train.te, type="class")
+cart2.te.predict.t <- table(train.te$Survived, cart2.te.predict)
+cart2.te.acc <- (cart2.te.predict.t[1,1]+cart2.te.predict.t[2,2])/sum(cart2.te.predict.t)
+
+#display decision tree
+prp(cart2)
+```
+
+The accuracy of this model on the training data is `r cart2.tr.acc`.  The accuracy of this model on the test data is `r cart2.te.acc`.
+
+This result shows a few things.  First, we see that very young males (less than 6.5 years old) were classified as surviving.  For females, surival is classified for those with a Pclass of 1st or 2nd class.  This may indicate that these people had more access to the equipment providing safe exit. Furthermore, lower class females older than 38 were classified as not surviving. 
+
