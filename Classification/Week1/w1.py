@@ -1,6 +1,6 @@
 import string
 import sys
-print(sys.version)
+print sys.version
 
 import numpy as np
 import sframe
